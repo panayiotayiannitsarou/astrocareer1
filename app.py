@@ -10,7 +10,7 @@ st.markdown("""<style>
 .stApp{background:#faf7fc}.block-container{max-width:1100px;padding-top:2rem}.hero{background:linear-gradient(135deg,#76538c,#ad83c2);color:white;border-radius:24px;padding:30px 34px;margin-bottom:20px}.hero h1{margin:0;font-family:Georgia;font-size:38px}.hero p{color:#f5ebfa}.ok{padding:13px 15px;background:#f0e7f5;border-left:5px solid #76538c;border-radius:9px}.warn{padding:13px 15px;background:#fff1dd;border-left:5px solid #b7791f;border-radius:9px}div[data-testid="stMetric"]{background:white;border:1px solid #e5d9eb;padding:10px;border-radius:12px}.stButton>button[kind="primary"]{background:#76538c;border-color:#76538c}</style>""", unsafe_allow_html=True)
 st.markdown('<div class="hero"><h1>Επαγγελματικός Προσανατολισμός</h1><p>Από το Astrodienst PDF σε ελεγμένη, απλή και πρακτική διερεύνηση δυνατοτήτων.</p></div>', unsafe_allow_html=True)
 
-defaults = {"chart":None, "confirmed":False, "generation":0, "validation":None, "result_bytes":None, "result_name":""}
+defaults = {"chart":None, "generation":0, "validation":None, "result_bytes":None, "result_name":""}
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
@@ -32,24 +32,29 @@ with st.sidebar:
         st.rerun()
     st.caption("Τα στοιχεία παραμένουν μόνο στην τρέχουσα συνεδρία της εφαρμογής.")
 
-tab1, tab2, tab3, tab4 = st.tabs(["1 · PDF και έλεγχος", "2 · Επιλογές", "3 · Δημιουργία", "4 · Έλεγχος Word"])
+tab1, tab2, tab3, tab4 = st.tabs(["1 · PDF και αυτόματος έλεγχος", "2 · Επιλογές", "3 · Δημιουργία", "4 · Έλεγχος Word"])
 
 with tab1:
-    st.subheader("Ανέβασε το Astrodienst Natal Chart Data Sheet")
-    pdf = st.file_uploader("PDF", type=["pdf"], key=f"pdf_{st.session_state.generation}")
-    if pdf and st.button("Ανάγνωση PDF", type="primary"):
-        try:
-            chart = parse_astrodienst_pdf(pdf.getvalue(), pdf.name)
-            new_case()
-            st.session_state.chart = chart
-            st.success("Το PDF διαβάστηκε επιτυχώς.")
-            st.rerun()
-        except Exception as exc:
-            st.error("Το αρχείο δεν αναγνωρίστηκε ως πλήρες Astrodienst Data Sheet.")
-            with st.expander("Τεχνική λεπτομέρεια"):
-                st.code(str(exc))
     chart = st.session_state.chart
-    if chart:
+    if not chart:
+        st.subheader("Ανέβασε το Astrodienst Natal Chart Data Sheet")
+        pdf = st.file_uploader("PDF", type=["pdf"], key=f"pdf_{st.session_state.generation}")
+        if pdf and st.button("Ανάγνωση PDF", type="primary"):
+            try:
+                chart = parse_astrodienst_pdf(pdf.getvalue(), pdf.name)
+                new_case()
+                st.session_state.chart = chart
+                st.rerun()
+            except Exception as exc:
+                st.error("Το αρχείο δεν αναγνωρίστηκε ως πλήρες Astrodienst Data Sheet.")
+                with st.expander("Τεχνική λεπτομέρεια"):
+                    st.code(str(exc))
+    else:
+        st.markdown(
+            f'<div class="ok">✓ Το PDF της/του <b>{chart.name}</b> είναι ήδη φορτωμένο. '
+            'Ο αυτόματος τεχνικός έλεγχος ολοκληρώθηκε και μπορείς να πας απευθείας στην Καρτέλα 2.</div>',
+            unsafe_allow_html=True,
+        )
         a, b, c = st.columns(3)
         a.metric("Πλανήτες και σημεία", len(chart.points))
         b.metric("Ακμές Οίκων", len(chart.cusps))
@@ -58,7 +63,10 @@ with tab1:
         hard = [x for x in chart.aspects if x.aspect in ("Τετράγωνο", "Αντίθεση")]
         with st.expander("Έλεγχος βασικών όψεων", expanded=True):
             st.dataframe(pd.DataFrame([{"Ζεύγος":f"{x.first}–{x.second}", "Όψη":x.aspect, "Orb":x.orb_text, "Βαρύτητα":x.weight} for x in hard]), use_container_width=True, hide_index=True)
-        st.checkbox("Επιβεβαίωσα ότι τα στοιχεία συμφωνούν με το PDF", key="confirmed")
+        st.caption("✓ Αυτόματος έλεγχος: 12 ακμές, πλήρης κατάλογος σημείων και αναγνωρισμένος πίνακας όψεων.")
+        if st.button("Αντικατάσταση με άλλο PDF"):
+            new_case()
+            st.rerun()
 
 with tab2:
     chart = st.session_state.chart
@@ -77,8 +85,8 @@ with tab2:
 
 with tab3:
     chart = st.session_state.chart
-    if not chart or not st.session_state.confirmed:
-        st.warning("Χρειάζεται PDF και επιβεβαίωση στην Καρτέλα 1.")
+    if not chart:
+        st.warning("Χρειάζεται πρώτα ένα έγκυρο PDF στην Καρτέλα 1.")
     else:
         name = st.session_state.get("client_name", chart.name)
         service = st.session_state.get("service", "Παιδί/έφηβος")

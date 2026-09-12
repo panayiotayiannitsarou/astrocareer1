@@ -117,5 +117,6 @@ def parse_astrodienst_pdf(data, filename):
         aspects = _parse_aspects(page, by_code)
         if node:
             aspects.extend(south_node_aspects(aspects))
-        warnings = [] if aspects else ["Δεν αναγνωρίστηκε ο πίνακας όψεων."]
-        return Chart(name, date, time, place, method, points, cusps, aspects, warnings)
+        if not aspects:
+            raise ValueError("Δεν αναγνωρίστηκε ο πίνακας όψεων. Το πρόγραμμα σταμάτησε για να μην παραχθεί ανακριβές αποτέλεσμα.")
+        return Chart(name, date, time, place, method, points, cusps, aspects, [])
