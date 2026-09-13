@@ -95,7 +95,13 @@ def validate_result(text, service, presentation, language, audit_text=""):
             errors.append("Η απλή έκδοση περιέχει τεχνική αστρολογική ορολογία.")
         if not audit_text.strip():
             errors.append("Λείπει το εσωτερικό τεχνικό δελτίο.")
-        elif not re.search(r"(?:Παράρτημα|Appendix).{0,80}(?:Τεκμηρίωσ|Evidence|Audit)", audit_text, re.I | re.S):
+        elif not re.search(
+            r"(?:Παράρτημα\s+Ελέγχου\s+Τεκμηρίωσης|"
+            r"Εσωτερικό\s+Τεχνικό\s+Δελτίο(?:\s+Ελέγχου)?|"
+            r"Evidence\s+Audit\s+Appendix|Internal\s+Technical\s+(?:Audit\s+)?Record)",
+            audit_text,
+            re.I,
+        ):
             errors.append("Το τεχνικό δελτίο δεν έχει αναγνωρίσιμη ενότητα ελέγχου.")
     return errors
 
