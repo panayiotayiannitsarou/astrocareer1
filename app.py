@@ -1,6 +1,6 @@
 import streamlit as st
 from generator import generate
-from orientation import build_prompt, docx_text, prompt_docx, validate_result
+from orientation import build_prompt, docx_text, prompt_docx, validate_docx_format, validate_result
 from parser import parse_astrodienst_pdf
 
 st.set_page_config(page_title="Career Orientation", page_icon="✦", layout="wide")
@@ -13,6 +13,20 @@ _, lang_col=st.columns([6,1.6])
 with lang_col:
     language=st.selectbox("Γλώσσα / Language",["Ελληνικά","English"],key="site_language")
 lang="el" if language=="Ελληνικά" else "en"; t=EL if lang=="el" else EN
+PASTE_MESSAGE_EL="""Ακολούθησε πιστά τη δεσμευτική εντολή που περιλαμβάνεται στο επισυναπτόμενο έγγραφο και χρησιμοποίησε αποκλειστικά τα ελεγμένα τεχνικά δεδομένα που περιέχει. Μην επινοήσεις προσωπικά, επαγγελματικά ή ψυχολογικά στοιχεία.
+
+Παράδωσε δύο χωριστά και ολοκληρωμένα αρχεία Word:
+1. Το καθαρό παραδοτέο του πελάτη, σε απλή και πρακτική γλώσσα, χωρίς πλανήτες, ζώδια, Οίκους, όψεις, orb ή κατηγορίες βαρύτητας.
+2. Το εσωτερικό τεχνικό δελτίο ελέγχου με την πλήρη τεκμηρίωση που απαιτεί η δεσμευτική εντολή. Το δεύτερο αρχείο δεν παραδίδεται στον πελάτη.
+
+Χρησιμοποίησε τη γλώσσα που αναγράφεται στη δεσμευτική εντολή."""
+PASTE_MESSAGE_EN="""Follow the binding instructions contained in the attached document exactly and use only the verified technical data it contains. Do not invent personal, professional or psychological information.
+
+Deliver two separate, complete Word files:
+1. The clean client deliverable, written in clear and practical language, without planets, zodiac signs, Houses, aspects, orbs or weight categories.
+2. The internal technical audit record containing all evidence required by the binding instructions. The second file must not be delivered to the client.
+
+Use the language specified in the binding instructions."""
 st.markdown(f'<div class="hero"><h1>{t["title"]}</h1><p>{t["subtitle"]}</p></div>',unsafe_allow_html=True)
 
 defaults={"chart":None,"generation":0,"validation":None,"result_bytes":None,"result_name":""}
@@ -20,7 +34,7 @@ for k,v in defaults.items():
     if k not in st.session_state: st.session_state[k]=v
 def new_case():
     generation=st.session_state.generation+1
-    for k in ("client_name","service","presentation","cyprus_answer","generated_text"): st.session_state.pop(k,None)
+    for k in ("client_name","service","cyprus_answer","generated_text"): st.session_state.pop(k,None)
     for k,v in defaults.items(): st.session_state[k]=v
     st.session_state.generation=generation
 
@@ -49,20 +63,20 @@ with tab2:
     else:
         st.text_input(t["name"],value=chart.name,key="client_name")
         st.radio(t["service"],["child","adult"],format_func=lambda x:t[x],key="service")
-        st.radio(t["presentation"],["simple","analytical"],format_func=lambda x:t[x],key="presentation")
         if st.session_state.service=="child": st.radio(t["cyprus"],[True,False],format_func=lambda x:t["yes"] if x else t["no"],horizontal=True,key="cyprus_answer")
-        st.info(t["two"])
 
 with tab3:
     chart=st.session_state.chart
     if not chart: st.warning(t["need"])
     else:
-        name=st.session_state.get("client_name",chart.name); sid=st.session_state.get("service","child"); pid=st.session_state.get("presentation","simple")
+        name=st.session_state.get("client_name",chart.name); sid=st.session_state.get("service","child")
         service="Παιδί/έφηβος" if sid=="child" else "Ενήλικας σε αλλαγή επαγγελματικής πορείας"
-        presentation="Απλή και πρακτική" if pid=="simple" else "Αναλυτική με αστρολογική τεκμηρίωση"
+        presentation="Απλή και πρακτική"
         output_language="Ελληνικά" if lang=="el" else "English"; cyprus=sid=="child" and st.session_state.get("cyprus_answer",True)
         prompt=build_prompt(chart,name,service,presentation,output_language,cyprus)
         st.download_button(t["prompt"],prompt_docx(name,t[sid],prompt),file_name="career_orientation_prompt.docx",use_container_width=True)
+        st.markdown("#### Έτοιμο μήνυμα για αντιγραφή" if lang=="el" else "#### Ready-to-copy message")
+        st.code(PASTE_MESSAGE_EL if lang=="el" else PASTE_MESSAGE_EN,language=None)
         with st.expander(t["preview"]): st.text_area("",prompt,height=300,label_visibility="collapsed")
         st.divider(); st.markdown(f'#### {t["auto"]}'); api=st.text_input("OpenAI API key",type="password",placeholder="sk-...")
         if st.button(t["create"],type="primary",disabled=not api):
@@ -76,12 +90,14 @@ with tab4:
     chart=st.session_state.chart
     if not chart: st.warning(t["nocase"])
     else:
-        sid=st.session_state.get("service","child"); pid=st.session_state.get("presentation","simple")
-        service="Παιδί/έφηβος" if sid=="child" else "Ενήλικας σε αλλαγή επαγγελματικής πορείας"; presentation="Απλή και πρακτική" if pid=="simple" else "Αναλυτική με αστρολογική τεκμηρίωση"; output_language="Ελληνικά" if lang=="el" else "English"
-        result=st.file_uploader(t["result"],type=["docx"],key=f"result_{st.session_state.generation}"); audit=st.file_uploader(t["audit"],type=["docx"],key=f"audit_{st.session_state.generation}") if pid=="simple" else None
-        ready=bool(result) and (pid!="simple" or bool(audit))
+        sid=st.session_state.get("service","child")
+        service="Παιδί/έφηβος" if sid=="child" else "Ενήλικας σε αλλαγή επαγγελματικής πορείας"; presentation="Απλή και πρακτική"; output_language="Ελληνικά" if lang=="el" else "English"
+        result=st.file_uploader(t["result"],type=["docx"],key=f"result_{st.session_state.generation}"); audit=st.file_uploader(t["audit"],type=["docx"],key=f"audit_{st.session_state.generation}")
+        ready=bool(result) and bool(audit)
         if st.button(t["check"],type="primary",disabled=not ready):
-            data=result.getvalue(); errors=validate_result(docx_text(data),service,presentation,output_language,docx_text(audit.getvalue()) if audit else "")
+            data=result.getvalue(); audit_data=audit.getvalue()
+            errors=validate_result(docx_text(data),service,presentation,output_language,docx_text(audit_data))
+            errors.extend(validate_docx_format(data,audit_data))
             st.session_state.validation=errors; st.session_state.result_bytes=data; st.session_state.result_name=result.name
         errors=st.session_state.validation
         if errors==[]:
