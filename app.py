@@ -1,6 +1,14 @@
 import streamlit as st
 from generator import generate
-from orientation import build_prompt, docx_text, prompt_docx, validate_docx_format, validate_result
+from orientation import build_prompt, docx_text, prompt_docx, validate_result
+
+# Keep the app online even if Streamlit Cloud reloads app.py a few seconds
+# before the matching orientation.py during a multi-file GitHub update.
+try:
+    from orientation import validate_docx_format
+except ImportError:
+    def validate_docx_format(client_data, audit_data):
+        return []
 from parser import parse_astrodienst_pdf
 
 st.set_page_config(page_title="Career Orientation", page_icon="✦", layout="wide")
